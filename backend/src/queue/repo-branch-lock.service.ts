@@ -7,5 +7,5 @@
 // implementation-plan.md Phase 5.
 
 export function repoBranchLockKey(repoId: string, branch: string): string {
-  return `${repoId}:${branch}`;
+  return `${repoId}__${branch}`;
 }
