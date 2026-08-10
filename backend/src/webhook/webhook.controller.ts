@@ -9,6 +9,7 @@ import { BUILD_FAILURE_QUEUE } from "../queue/queue.module";
 import { BuildFailureJobPayload } from "../queue/build-failure.job";
 import { repoBranchLockKey } from "../queue/repo-branch-lock.service";
 import { PrismaService } from "../database/prisma.service";
+import { Logger } from "@nestjs/common";
 
 // Satisfies: FR-4, FR-5, FR-7
 // This is the one HTTP-facing edge of the whole system. Its only job is to
@@ -20,6 +21,7 @@ import { PrismaService } from "../database/prisma.service";
 // never this controller).
 @Controller("webhooks/github")
 export class WebhookController {
+  private readonly logger = new Logger(WebhookController.name);
   constructor(
   private readonly config: ConfigService,
   private readonly prisma: PrismaService,
@@ -41,53 +43,61 @@ export class WebhookController {
     // Always acknowledge quickly; do the real work asynchronously.
     res.status(HttpStatus.ACCEPTED).send("accepted");
 
-    if (event !== "workflow_run") return;
+try {
+      if (event !== "workflow_run") return;
 
-    const payload = req.body;
-    if (payload.action !== "completed" || payload.workflow_run?.conclusion !== "failure") {
-      return; // only diagnose actual failures, ignore successes and in-progress runs
-    }
+      const payload = req.body;
+      if (payload.action !== "completed" || payload.workflow_run?.conclusion !== "failure") {
+        return; // only diagnose actual failures, ignore successes and in-progress runs
+      }
 
-    const repo = await this.prisma.repo.findFirst({
-      where: { githubRepoId: String(payload.repository.id) },
-    });
-    if (!repo) return; // event from a repo that isn't connected to Iris
+      const repo = await this.prisma.repo.findFirst({
+        where: { githubRepoId: String(payload.repository.id) },
+      });
+      if (!repo) {
+        this.logger.warn(`No connected repo found for githubRepoId=${payload.repository.id}`);
+        return; // event from a repo that isn't connected to Iris
+      }
 
-    const build = await this.prisma.build.create({
-      data: {
-        repoId: repo.id,
+      const build = await this.prisma.build.create({
+        data: {
+          repoId: repo.id,
+          commitSha: payload.workflow_run.head_sha,
+          branch: payload.workflow_run.head_branch,
+          status: "failed",
+        },
+      });
+
+      const pullRequestNumber = await this.github.findOpenPullRequestForBranch(
+        String(payload.installation.id),
+        payload.repository.owner.login,
+        payload.repository.name,
+        payload.workflow_run.head_branch,
+      );
+
+      const job: BuildFailureJobPayload = {
+        installationId: String(payload.installation.id),
+        owner: payload.repository.owner.login,
+        repo: payload.repository.name,
+        repoDbId: repo.id,
+        runId: payload.workflow_run.id,
         commitSha: payload.workflow_run.head_sha,
         branch: payload.workflow_run.head_branch,
-        status: "failed",
-      },
-    });
+        pullRequestNumber,
+      };
 
-    const pullRequestNumber = await this.github.findOpenPullRequestForBranch(
-      String(payload.installation.id),
-      payload.repository.owner.login,
-      payload.repository.name,
-      payload.workflow_run.head_branch,
-    );
+      // jobId = repo-branch lock key: prevents two overlapping diagnosis
+      // attempts on the same branch from racing each other (FR-7).
+      await this.queue.add("diagnose", job, {
+        jobId: repoBranchLockKey(repo.id, job.branch),
+        attempts: 1,
+      });
 
-    const job: BuildFailureJobPayload = {
-      installationId: String(payload.installation.id),
-      owner: payload.repository.owner.login,
-      repo: payload.repository.name,
-      repoDbId: repo.id,
-      runId: payload.workflow_run.id,
-      commitSha: payload.workflow_run.head_sha,
-      branch: payload.workflow_run.head_branch,
-      pullRequestNumber,
-    };
-
-    // jobId = repo-branch lock key: prevents two overlapping diagnosis
-    // attempts on the same branch from racing each other (FR-7).
-    await this.queue.add("diagnose", job, {
-      jobId: repoBranchLockKey(repo.id, job.branch),
-      attempts: 1,
-    });
-
-    await this.prisma.build.update({ where: { id: build.id }, data: { status: "queued" } });
+      await this.prisma.build.update({ where: { id: build.id }, data: { status: "queued" } });
+      this.logger.log(`Enqueued diagnosis job for ${job.owner}/${job.repo}#${job.branch}`);
+    } catch (err) {
+      this.logger.error(`Webhook processing failed: ${(err as Error).message}`, (err as Error).stack);
+    }
   }
 
   private isValidSignature(rawBody: Buffer | undefined, signature: string | undefined): boolean {
