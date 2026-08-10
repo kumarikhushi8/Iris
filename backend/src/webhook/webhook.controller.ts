@@ -1,3 +1,4 @@
+import { GithubService } from "../github/github.service";
 import { Controller, Post, Req, Res, Headers, HttpStatus } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { ConfigService } from "@nestjs/config";
@@ -20,10 +21,11 @@ import { PrismaService } from "../database/prisma.service";
 @Controller("webhooks/github")
 export class WebhookController {
   constructor(
-    private readonly config: ConfigService,
-    private readonly prisma: PrismaService,
-    @InjectQueue(BUILD_FAILURE_QUEUE) private readonly queue: Queue<BuildFailureJobPayload>,
-  ) {}
+  private readonly config: ConfigService,
+  private readonly prisma: PrismaService,
+  private readonly github: GithubService,
+  @InjectQueue(BUILD_FAILURE_QUEUE) private readonly queue: Queue<BuildFailureJobPayload>,
+) {}
 
   @Post()
   async handle(
@@ -60,6 +62,13 @@ export class WebhookController {
       },
     });
 
+    const pullRequestNumber = await this.github.findOpenPullRequestForBranch(
+      String(payload.installation.id),
+      payload.repository.owner.login,
+      payload.repository.name,
+      payload.workflow_run.head_branch,
+    );
+
     const job: BuildFailureJobPayload = {
       installationId: String(payload.installation.id),
       owner: payload.repository.owner.login,
@@ -68,7 +77,7 @@ export class WebhookController {
       runId: payload.workflow_run.id,
       commitSha: payload.workflow_run.head_sha,
       branch: payload.workflow_run.head_branch,
-      pullRequestNumber: payload.workflow_run.pull_requests?.[0]?.number ?? null,
+      pullRequestNumber,
     };
 
     // jobId = repo-branch lock key: prevents two overlapping diagnosis

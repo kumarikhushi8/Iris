@@ -76,6 +76,26 @@ export class GithubService {
     }
   }
 
+  /**
+   * Finds the open PR (if any) for a given branch. More reliable than
+   * workflow_run.pull_requests, which is frequently empty or delayed.
+   */
+  async findOpenPullRequestForBranch(
+    installationId: string,
+    owner: string,
+    repo: string,
+    branch: string,
+  ): Promise<number | null> {
+    const octokit = await this.getInstallationClient(installationId);
+    const { data } = await octokit.rest.pulls.list({
+      owner,
+      repo,
+      head: `${owner}:${branch}`,
+      state: "open",
+    });
+    return data[0]?.number ?? null;
+  }
+
   /** Posts a diagnosis as a PR comment. Used in "comment_only" autonomy mode. */
   async postComment(
     installationId: string,
@@ -113,3 +133,5 @@ export class GithubService {
     return data.html_url;
   }
 }
+
+
