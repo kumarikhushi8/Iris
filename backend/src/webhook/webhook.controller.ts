@@ -89,7 +89,9 @@ try {
       // jobId = repo-branch lock key: prevents two overlapping diagnosis
       // attempts on the same branch from racing each other (FR-7).
       await this.queue.add("diagnose", job, {
-        jobId: repoBranchLockKey(repo.id, job.branch),
+        jobId: `${repoBranchLockKey(repo.id, job.branch)}__${job.commitSha}`,
+        removeOnComplete: true,
+        removeOnFail: true,
         attempts: 1,
       });
 
