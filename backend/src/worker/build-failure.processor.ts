@@ -78,7 +78,10 @@ export class BuildFailureProcessor extends WorkerHost {
         data.commitSha,
       );
       if (content) {
+        this.logger.log(`Fetched ${content.length} chars of code from ${filePath}`);
         relevantCode.push({ filePath, content });
+      } else {
+        this.logger.warn(`No content returned for ${filePath}`);
       }
     }
 
