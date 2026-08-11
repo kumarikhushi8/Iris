@@ -9,6 +9,7 @@ import { AI_PROVIDER } from "../ai/ai.module";
 import type { AiProvider } from "../ai/ai-provider.interface";
 import { redactSecrets } from "../common/redact-secrets";
 import { LogNormalizationService } from "../retrieval/log-normalization.service";
+import { StructuralRetrievalService } from "../retrieval/structural-retrieval.service";
 
 // Satisfies: FR-8 (placeholder form), FR-10
 // This is the Phase 0 form of the pipeline described in implementation-plan.md.
@@ -26,6 +27,7 @@ export class BuildFailureProcessor extends WorkerHost {
     private readonly prisma: PrismaService,
     private readonly github: GithubService,
     private readonly logNormalization: LogNormalizationService,
+    private readonly structuralRetrieval: StructuralRetrievalService,
     @Inject(AI_PROVIDER) private readonly ai: AiProvider,
   ) {
     super();
@@ -63,11 +65,28 @@ export class BuildFailureProcessor extends WorkerHost {
       );
     }
 
+    // --- Step 1b: fetch the actual code referenced in the log (FR-9) --------
+    const referencedFiles = this.structuralRetrieval.findReferencedFiles(logExcerpt);
+    const relevantCode: Array<{ filePath: string; content: string }> = [];
+
+    for (const filePath of referencedFiles) {
+      const content = await this.github.getFileContent(
+        data.installationId,
+        data.owner,
+        data.repo,
+        filePath,
+        data.commitSha,
+      );
+      if (content) {
+        relevantCode.push({ filePath, content });
+      }
+    }
+
     // --- Step 2: diagnose (FR-10) ----------------------------------------
     const diagnosisResult = await this.ai.diagnose({
-      errorSignature: "unknown", // populated once log parsing is wired in (Phase 2)
+      errorSignature: "unknown", // full extraction is a further refinement
       logExcerpt,
-      relevantCode: [], // populated once hybrid retrieval is wired in (Phase 2)
+      relevantCode,
     });
 
     const diagnosis = await this.prisma.diagnosis.create({
