@@ -6,6 +6,7 @@ import { GithubModule } from "../github/github.module";
 import { AiModule } from "../ai/ai.module";
 import { BUILD_FAILURE_QUEUE } from "../queue/queue.module";
 import { BuildFailureProcessor } from "./build-failure.processor";
+import { RetrievalModule } from "../retrieval/retrieval.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { BuildFailureProcessor } from "./build-failure.processor";
     DatabaseModule,
     GithubModule,
     AiModule,
+    RetrievalModule,
   ],
   providers: [BuildFailureProcessor],
 })

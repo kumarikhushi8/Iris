@@ -8,6 +8,7 @@ import { GithubService } from "../github/github.service";
 import { AI_PROVIDER } from "../ai/ai.module";
 import type { AiProvider } from "../ai/ai-provider.interface";
 import { redactSecrets } from "../common/redact-secrets";
+import { LogNormalizationService } from "../retrieval/log-normalization.service";
 
 // Satisfies: FR-8 (placeholder form), FR-10
 // This is the Phase 0 form of the pipeline described in implementation-plan.md.
@@ -24,6 +25,7 @@ export class BuildFailureProcessor extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly github: GithubService,
+    private readonly logNormalization: LogNormalizationService,
     @Inject(AI_PROVIDER) private readonly ai: AiProvider,
   ) {
     super();
@@ -44,13 +46,22 @@ export class BuildFailureProcessor extends WorkerHost {
 
     await this.prisma.build.update({ where: { id: build.id }, data: { status: "diagnosing" } });
 
-    // --- Step 1: gather context (Phase 0 placeholder) ------------------
-    // Real implementation (Phase 2, retrieval/log-normalization.service.ts):
-    // fetch and unzip the workflow run's log archive via
-    // GithubService.getWorkflowRunLogsUrl, then extract the failing step.
-    const rawLogExcerpt = `Workflow run ${data.runId} failed on branch ${data.branch}. ` +
-      `(Phase 0 placeholder -- see retrieval/log-normalization.service.ts, Phase 2.)`;
-    const logExcerpt = redactSecrets(rawLogExcerpt);
+    // --- Step 1: gather context (Phase 2 -- real log retrieval) -------------
+    let logExcerpt: string;
+    try {
+      const logsUrl = await this.github.getWorkflowRunLogsUrl(
+        data.installationId,
+        data.owner,
+        data.repo,
+        data.runId,
+      );
+      logExcerpt = await this.logNormalization.fetchAndNormalize(logsUrl);
+    } catch (err) {
+      this.logger.warn(`Log retrieval failed, falling back to minimal context: ${(err as Error).message}`);
+      logExcerpt = redactSecrets(
+        `Workflow run ${data.runId} failed on branch ${data.branch}. Log retrieval failed: ${(err as Error).message}`,
+      );
+    }
 
     // --- Step 2: diagnose (FR-10) ----------------------------------------
     const diagnosisResult = await this.ai.diagnose({
