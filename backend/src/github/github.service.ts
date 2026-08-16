@@ -77,6 +77,22 @@ export class GithubService {
   }
 
   /**
+   * Downloads a tarball snapshot of the repo at a specific commit --
+   * used by the sandbox executor to get an exact, isolated copy of the
+   * code to validate a fix against (Phase 3, FR-12).
+   */
+  async downloadRepoTarball(
+    installationId: string,
+    owner: string,
+    repo: string,
+    ref: string,
+  ): Promise<Buffer> {
+    const octokit = await this.getInstallationClient(installationId);
+    const response = await octokit.rest.repos.downloadTarballArchive({ owner, repo, ref });
+    return Buffer.from(response.data as ArrayBuffer);
+  }
+
+  /**
    * Finds the open PR (if any) for a given branch. More reliable than
    * workflow_run.pull_requests, which is frequently empty or delayed.
    */
