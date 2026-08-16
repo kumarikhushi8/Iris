@@ -7,6 +7,7 @@ import * as path from "path";
 import * as zlib from "zlib";
 import * as crypto from "crypto";
 import * as tar from "tar-stream";
+import * as Diff from "diff";
 import { GithubService } from "../github/github.service";
 import { getSandboxRuntimeConfig } from "./sandbox-runtime.config";
 
@@ -21,7 +22,7 @@ import { getSandboxRuntimeConfig } from "./sandbox-runtime.config";
 // not implemented here -- noted explicitly rather than silently assumed.
 
 export interface SandboxResult {
-  result: "pass" | "fail" | "timeout";
+  result: "pass" | "fail" | "timeout" | "patch_failed";
   testLog: string;
   durationMs: number;
 }
@@ -46,6 +47,7 @@ export class SandboxExecutorService {
     owner: string,
     repo: string,
     commitSha: string,
+    patch?: { filePath: string; diff: string },
   ): Promise<SandboxResult> {
     const runtimeConfig = getSandboxRuntimeConfig(this.config);
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "iris-sandbox-"));
@@ -55,6 +57,22 @@ export class SandboxExecutorService {
       this.logger.log(`Fetching snapshot of ${owner}/${repo}@${commitSha}`);
       const tarball = await this.github.downloadRepoTarball(installationId, owner, repo, commitSha);
       await this.extractTarball(tarball, workDir);
+
+      // Satisfies: FR-12 -- a fix is only ever validated by actually
+      // applying it and running the result, never trusted as text alone.
+      if (patch) {
+        const applied = this.applyPatch(workDir, patch.filePath, patch.diff);
+        if (!applied.success) {
+          const durationMs = Date.now() - start;
+          this.logger.warn(`Patch did not apply cleanly to ${patch.filePath}`);
+          return {
+            result: "patch_failed",
+            testLog: `Patch failed to apply to ${patch.filePath}:\n${applied.reason}`,
+            durationMs,
+          };
+        }
+        this.logger.log(`Patch applied cleanly to ${patch.filePath}`);
+      }
 
       const containerName = `iris-sandbox-${crypto.randomUUID()}`;
       const dockerArgs = [
@@ -85,6 +103,29 @@ export class SandboxExecutorService {
     } finally {
       fs.rmSync(workDir, { recursive: true, force: true });
     }
+  }
+
+  private applyPatch(
+    workDir: string,
+    filePath: string,
+    diffText: string,
+  ): { success: boolean; reason?: string } {
+    const targetPath = path.join(workDir, filePath);
+    if (!fs.existsSync(targetPath)) {
+      return { success: false, reason: `File ${filePath} not found in workspace` };
+    }
+
+    const original = fs.readFileSync(targetPath, "utf8");
+    const patched = Diff.applyPatch(original, diffText);
+
+    if (patched === false) {
+      this.logger.debug(`Original file content:\n${JSON.stringify(original)}`);
+      this.logger.debug(`Diff attempted:\n${JSON.stringify(diffText)}`);
+      return { success: false, reason: "Diff did not apply cleanly (context mismatch)" };
+    }
+
+    fs.writeFileSync(targetPath, patched);
+    return { success: true };
   }
 
   private extractTarball(buffer: Buffer, destDir: string): Promise<void> {
