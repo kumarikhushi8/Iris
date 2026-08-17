@@ -23,7 +23,7 @@ export class LogNormalizationService {
    * files whose content contains common failure keywords.
    */
   async fetchAndNormalize(logsUrl: string): Promise<string> {
-    const response = await fetch(logsUrl);
+        const response = await fetch(logsUrl, { signal: AbortSignal.timeout(30000) });
     if (!response.ok) {
       throw new Error(`Failed to download logs: ${response.status} ${response.statusText}`);
     }

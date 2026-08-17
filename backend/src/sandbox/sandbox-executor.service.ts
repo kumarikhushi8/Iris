@@ -55,7 +55,11 @@ export class SandboxExecutorService {
 
     try {
       this.logger.log(`Fetching snapshot of ${owner}/${repo}@${commitSha}`);
-      const tarball = await this.github.downloadRepoTarball(installationId, owner, repo, commitSha);
+      const tarball = await this.withTimeout(
+        this.github.downloadRepoTarball(installationId, owner, repo, commitSha),
+        30000,
+        "Repo tarball download",
+      );
       await this.extractTarball(tarball, workDir);
 
       // Satisfies: FR-12 -- a fix is only ever validated by actually
@@ -182,5 +186,18 @@ export class SandboxExecutorService {
         resolve({ exitCode: code, output, timedOut });
       });
     });
+  }
+
+  
+  private async withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    let timer: NodeJS.Timeout;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    });
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      clearTimeout(timer!);
+    }
   }
 }

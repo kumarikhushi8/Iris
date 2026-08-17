@@ -49,15 +49,18 @@ export class GroqProvider implements AiProvider {
 
     const userContent = parts.join("\n\n");
 
-    const completion = await this.client.chat.completions.create({
-      model: this.model,
-      temperature: 0.1,
-      messages: [
-        { role: "system", content: DIAGNOSIS_SYSTEM_PROMPT },
-        { role: "user", content: userContent },
-      ],
-      response_format: { type: "json_object" },
-    });
+        const completion = await this.client.chat.completions.create(
+      {
+        model: this.model,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: DIAGNOSIS_SYSTEM_PROMPT },
+          { role: "user", content: userContent },
+        ],
+        response_format: { type: "json_object" },
+      },
+      { timeout: 30000 }, // fail loudly after 30s rather than hang indefinitely
+    );
 
     const raw = completion.choices[0]?.message?.content ?? "{}";
 
