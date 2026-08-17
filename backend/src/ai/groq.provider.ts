@@ -32,13 +32,22 @@ export class GroqProvider implements AiProvider {
   }
 
   async diagnose(request: DiagnosisRequest): Promise<DiagnosisResult> {
-    const userContent = [
+        const parts = [
       `Error signature:\n${request.errorSignature}`,
       `Log excerpt:\n${request.logExcerpt}`,
       `Relevant code:\n${request.relevantCode
         .map((f) => `--- ${f.filePath} ---\n${f.content}`)
         .join("\n\n")}`,
-    ].join("\n\n");
+    ];
+
+    if (request.previousAttemptFailure) {
+      parts.push(
+        `Your previous proposed fix was tested and FAILED. Do not repeat the same diff. ` +
+          `Sandbox output from the failed attempt:\n${request.previousAttemptFailure}`,
+      );
+    }
+
+    const userContent = parts.join("\n\n");
 
     const completion = await this.client.chat.completions.create({
       model: this.model,

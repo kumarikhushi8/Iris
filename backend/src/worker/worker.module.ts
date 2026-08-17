@@ -7,6 +7,7 @@ import { AiModule } from "../ai/ai.module";
 import { BUILD_FAILURE_QUEUE } from "../queue/queue.module";
 import { BuildFailureProcessor } from "./build-failure.processor";
 import { RetrievalModule } from "../retrieval/retrieval.module";
+import { SandboxModule } from "../sandbox/sandbox.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RetrievalModule } from "../retrieval/retrieval.module";
     GithubModule,
     AiModule,
     RetrievalModule,
+    SandboxModule,
   ],
   providers: [BuildFailureProcessor],
 })

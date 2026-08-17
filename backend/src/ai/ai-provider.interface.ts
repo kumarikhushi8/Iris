@@ -8,6 +8,10 @@ export interface DiagnosisRequest {
   errorSignature: string;
   logExcerpt: string;
   relevantCode: Array<{ filePath: string; content: string }>;
+  /** Set on retry attempts (FR-13): the sandbox's failure output from the
+   * previous proposed fix, so the agent can correct course instead of
+   * repeating the same mistake. */
+  previousAttemptFailure?: string;
 }
 
 export interface DiagnosisResult {
