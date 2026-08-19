@@ -128,10 +128,14 @@ export class SandboxExecutorService {
       return { success: false, reason: "Diff did not apply cleanly (context mismatch)" };
     }
 
+    if (patched === original) {
+      this.logger.warn(`Patch "applied" but produced no change to ${filePath} -- treating as failure`);
+      return { success: false, reason: "Patch applied without error but did not change file content" };
+    }
+
     fs.writeFileSync(targetPath, patched);
     return { success: true };
   }
-
   private extractTarball(buffer: Buffer, destDir: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const extract = tar.extract();
