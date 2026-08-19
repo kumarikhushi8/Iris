@@ -66,6 +66,10 @@ export class GroqProvider implements AiProvider {
 
     try {
       const parsed = JSON.parse(raw);
+      this.logger.log(`Raw parsed diff length: ${parsed.proposedDiff ? parsed.proposedDiff.length : "null/undefined"}`);
+      if (parsed.proposedDiff) {
+        this.logger.debug(`Proposed diff content:\n${parsed.proposedDiff}`);
+      }
       return {
         rootCause: parsed.rootCause ?? "Unable to determine root cause",
         fixType: parsed.fixType ?? "unknown",

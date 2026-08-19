@@ -22,13 +22,8 @@ export class LogNormalizationService {
    * portion most likely to contain the actual failure -- prioritizing
    * files whose content contains common failure keywords.
    */
-  async fetchAndNormalize(logsUrl: string): Promise<string> {
-        const response = await fetch(logsUrl, { signal: AbortSignal.timeout(30000) });
-    if (!response.ok) {
-      throw new Error(`Failed to download logs: ${response.status} ${response.statusText}`);
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
+    async fetchAndNormalize(logsUrl: string): Promise<string> {
+    const buffer = await this.fetchWithRetry(logsUrl, 3);
     const zip = new AdmZip(buffer);
     const entries = zip.getEntries().filter((e) => !e.isDirectory && e.entryName.endsWith(".txt"));
 
@@ -51,6 +46,25 @@ export class LogNormalizationService {
 
     const excerpt = best.cleaned.slice(-MAX_EXCERPT_CHARS); // keep the tail -- failures usually appear near the end
     return redactSecrets(excerpt);
+  }
+
+  
+  private async fetchWithRetry(url: string, attempts: number): Promise<Buffer> {
+    let lastError: Error | undefined;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
+        if (!response.ok) {
+          throw new Error(`Failed to download logs: ${response.status} ${response.statusText}`);
+        }
+        return Buffer.from(await response.arrayBuffer());
+      } catch (err) {
+        lastError = err as Error;
+        this.logger.warn(`Log download attempt ${i + 1}/${attempts} failed: ${lastError.message}`);
+        if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1000 * (i + 1)));
+      }
+    }
+    throw lastError;
   }
 
   private clean(raw: string): string {

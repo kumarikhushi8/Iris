@@ -116,11 +116,12 @@ export class BuildFailureProcessor extends WorkerHost {
       }
       finalDiagnosisResult = diagnosisResult;
 
-      await this.prisma.diagnosis.update({
+            await this.prisma.diagnosis.update({
         where: { id: diagnosis.id },
         data: {
           rootCause: diagnosisResult.rootCause,
           fixType: diagnosisResult.fixType,
+          proposedDiff: diagnosisResult.proposedDiff,
           confidence: diagnosisResult.confidence,
           retryCount: attempt,
         },
