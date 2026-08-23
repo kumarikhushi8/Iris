@@ -8,6 +8,7 @@ import { BUILD_FAILURE_QUEUE } from "../queue/queue.module";
 import { BuildFailureProcessor } from "./build-failure.processor";
 import { RetrievalModule } from "../retrieval/retrieval.module";
 import { SandboxModule } from "../sandbox/sandbox.module";
+import { ObservabilityModule } from "../observability/observability.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SandboxModule } from "../sandbox/sandbox.module";
     AiModule,
     RetrievalModule,
     SandboxModule,
+    ObservabilityModule,
   ],
   providers: [BuildFailureProcessor],
 })
