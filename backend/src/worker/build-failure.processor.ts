@@ -170,8 +170,13 @@ export class BuildFailureProcessor extends WorkerHost {
       attempt++;
     }
 
-    if (finalOutcome === "validated") {
+        if (finalOutcome === "validated") {
       await this.prisma.diagnosis.update({ where: { id: diagnosis.id }, data: { status: "awaiting_approval" } });
+      // Satisfies: FR-15 -- every validated fix gets a pending Approval
+      // record the moment it's ready for review, not just a status flag.
+      await this.prisma.approval.create({
+        data: { diagnosisId: diagnosis.id, decision: "pending" },
+      });
     } else if (attempt > this.maxRetries) {
       finalOutcome = "inconclusive";
       await this.prisma.diagnosis.update({ where: { id: diagnosis.id }, data: { status: "inconclusive" } });

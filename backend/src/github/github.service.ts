@@ -124,6 +124,54 @@ export class GithubService {
     await octokit.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body });
   }
 
+    /**
+   * Creates a new branch from `baseBranch`, commits the given file content
+   * to it, and returns the branch name. This is the only way a fix's
+   * content ever reaches a real branch -- and per FR-17, this method (and
+   * openDraftPullRequest below) must only ever be called from approval/,
+   * after an Approval record with decision="approved" exists.
+   */
+  async commitFixToNewBranch(
+    installationId: string,
+    owner: string,
+    repo: string,
+    baseBranch: string,
+    baseSha: string,
+    filePath: string,
+    newContent: string,
+    branchSuffix: string,
+  ): Promise<string> {
+    const octokit = await this.getInstallationClient(installationId);
+    const branchName = `iris-fix-${branchSuffix}`;
+
+    await octokit.rest.git.createRef({
+      owner,
+      repo,
+      ref: `refs/heads/${branchName}`,
+      sha: baseSha,
+    });
+
+    const { data: existingFile } = await octokit.rest.repos.getContent({
+      owner,
+      repo,
+      path: filePath,
+      ref: branchName,
+    });
+    const sha = "sha" in existingFile ? existingFile.sha : undefined;
+
+    await octokit.rest.repos.createOrUpdateFileContents({
+      owner,
+      repo,
+      path: filePath,
+      message: `Iris: automated fix for ${filePath}`,
+      content: Buffer.from(newContent, "utf8").toString("base64"),
+      branch: branchName,
+      sha,
+    });
+
+    return branchName;
+  }
+
   /**
    * Opens a draft pull request containing a validated, human-approved fix.
    * IMPORTANT: per FR-17, this must only ever be called from approval/

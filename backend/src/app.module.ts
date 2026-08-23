@@ -6,6 +6,7 @@ import { WebhookModule } from "./webhook/webhook.module";
 import { QueueModule } from "./queue/queue.module";
 import { GithubModule } from "./github/github.module";
 import { AiModule } from "./ai/ai.module";
+import { ApprovalModule } from "./approval/approval.module";
 
 // Phase 0 wiring only. retrieval/, sandbox/, approval/, notification/,
 // evaluation/, and observability/ exist as directories (see
@@ -25,6 +26,7 @@ import { AiModule } from "./ai/ai.module";
     AiModule,
     QueueModule,
     WebhookModule,
+    ApprovalModule,
   ],
 })
 export class AppModule {}
