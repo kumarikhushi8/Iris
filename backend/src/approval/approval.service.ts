@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from "@nes
 import { PrismaService } from "../database/prisma.service";
 import { GithubService } from "../github/github.service";
 import * as Diff from "diff";
+import { MetricsService } from "../observability/metrics.service";
 
 // Satisfies: FR-15, FR-16, FR-17, FR-18
 // This is the ONLY module permitted to call GithubService.openDraftPullRequest.
@@ -15,6 +16,7 @@ export class ApprovalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly github: GithubService,
+    private readonly metrics: MetricsService,
   ) {}
 
   async listPending() {
@@ -54,6 +56,7 @@ export class ApprovalService {
       throw new BadRequestException(`Approval already has decision: ${approval.decision}`);
     }
     // FR-18: rejection is recorded, no PR path is ever reached.
+    this.metrics.approvalsTotal.inc({ decision: "rejected" });
     return this.prisma.approval.update({
       where: { id: approvalId },
       data: { decision: "rejected", reviewerId, reviewedAt: new Date() },
@@ -134,6 +137,7 @@ export class ApprovalService {
       where: { id: approvalId },
       data: { decision: "approved", reviewerId, reviewedAt: new Date(), prUrl },
     });
+    this.metrics.approvalsTotal.inc({ decision: "approved" });
     this.logger.log(`Approval ${approvalId} resulted in draft PR: ${prUrl}`);
 
     return { prUrl };

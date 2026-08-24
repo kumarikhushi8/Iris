@@ -10,6 +10,7 @@ import * as tar from "tar-stream";
 import * as Diff from "diff";
 import { GithubService } from "../github/github.service";
 import { getSandboxRuntimeConfig } from "./sandbox-runtime.config";
+import { MetricsService } from "../observability/metrics.service";
 
 // Satisfies: FR-12, FR-14
 // Applies the repo's code at a given commit inside an isolated, resource-
@@ -31,9 +32,10 @@ export interface SandboxResult {
 export class SandboxExecutorService {
   private readonly logger = new Logger(SandboxExecutorService.name);
 
-  constructor(
+    constructor(
     private readonly config: ConfigService,
     private readonly github: GithubService,
+    private readonly metrics: MetricsService,
   ) {}
 
   /**
@@ -69,6 +71,7 @@ export class SandboxExecutorService {
         if (!applied.success) {
           const durationMs = Date.now() - start;
           this.logger.warn(`Patch did not apply cleanly to ${patch.filePath}`);
+          this.metrics.sandboxRuns.inc({ result: "patch_failed" });
           return {
             result: "patch_failed",
             testLog: `Patch failed to apply to ${patch.filePath}:\n${applied.reason}`,
@@ -102,6 +105,7 @@ export class SandboxExecutorService {
 
       const result: SandboxResult["result"] = timedOut ? "timeout" : exitCode === 0 ? "pass" : "fail";
       this.logger.log(`Sandbox result: ${result} (${durationMs}ms)`);
+      this.metrics.sandboxRuns.inc({ result });
 
       return { result, testLog: output.slice(-8000), durationMs };
     } finally {

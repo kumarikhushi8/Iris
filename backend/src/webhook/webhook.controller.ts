@@ -10,6 +10,7 @@ import { BuildFailureJobPayload } from "../queue/build-failure.job";
 import { repoBranchLockKey } from "../queue/repo-branch-lock.service";
 import { PrismaService } from "../database/prisma.service";
 import { Logger } from "@nestjs/common";
+import { MetricsService } from "../observability/metrics.service";
 
 // Satisfies: FR-4, FR-5, FR-7
 // This is the one HTTP-facing edge of the whole system. Its only job is to
@@ -22,12 +23,13 @@ import { Logger } from "@nestjs/common";
 @Controller("webhooks/github")
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
-  constructor(
-  private readonly config: ConfigService,
-  private readonly prisma: PrismaService,
-  private readonly github: GithubService,
-  @InjectQueue(BUILD_FAILURE_QUEUE) private readonly queue: Queue<BuildFailureJobPayload>,
-) {}
+    constructor(
+    private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly github: GithubService,
+    private readonly metrics: MetricsService,
+    @InjectQueue(BUILD_FAILURE_QUEUE) private readonly queue: Queue<BuildFailureJobPayload>,
+  ) {}
 
   @Post()
   async handle(
@@ -97,8 +99,10 @@ try {
 
       await this.prisma.build.update({ where: { id: build.id }, data: { status: "queued" } });
       this.logger.log(`Enqueued diagnosis job for ${job.owner}/${job.repo}#${job.branch}`);
+      this.metrics.webhooksReceived.inc({ outcome: "enqueued" });
     } catch (err) {
       this.logger.error(`Webhook processing failed: ${(err as Error).message}`, (err as Error).stack);
+      this.metrics.webhooksReceived.inc({ outcome: "error" });
     }
   }
 

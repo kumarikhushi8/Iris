@@ -12,6 +12,7 @@ import { LogNormalizationService } from "../retrieval/log-normalization.service"
 import { StructuralRetrievalService } from "../retrieval/structural-retrieval.service";
 import { SandboxExecutorService } from "../sandbox/sandbox-executor.service";
 import { redactSecrets } from "../common/redact-secrets";
+import { MetricsService } from "../observability/metrics.service";
 
 // Satisfies: FR-8, FR-9, FR-10, FR-12, FR-13, FR-14
 // Full Phase 3 pipeline: diagnose -> apply proposed fix in an isolated
@@ -32,6 +33,7 @@ export class BuildFailureProcessor extends WorkerHost {
     private readonly structuralRetrieval: StructuralRetrievalService,
     private readonly sandbox: SandboxExecutorService,
     private readonly config: ConfigService,
+    private readonly metrics: MetricsService,
     @Inject(AI_PROVIDER) private readonly ai: AiProvider,
   ) {
     super();
@@ -40,6 +42,7 @@ export class BuildFailureProcessor extends WorkerHost {
 
   async process(job: Job<BuildFailureJobPayload>): Promise<void> {
     const data = job.data;
+    const processingStart = Date.now();
     this.logger.log(`Diagnosing failed build ${data.owner}/${data.repo}@${data.commitSha}`);
 
     const build = await this.prisma.build.findFirst({
@@ -200,6 +203,8 @@ export class BuildFailureProcessor extends WorkerHost {
     }
 
     await this.prisma.build.update({ where: { id: build.id }, data: { status: "failed" } });
+    this.metrics.diagnosesTotal.inc({ outcome: finalOutcome });
+    this.metrics.diagnosisLatency.observe((Date.now() - processingStart) / 1000);
     this.logger.log(`Diagnosis ${diagnosis.id} completed with outcome "${finalOutcome}" for build ${build.id}`);
   }
 
