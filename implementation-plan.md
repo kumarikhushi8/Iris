@@ -11,15 +11,15 @@ The guiding principle throughout: build a **thin, working, end-to-end pipeline f
 **Goal:** every stage of the pipeline exists and actually runs, end to end, even in deliberately simplified form. No sandbox, no approval queue yet — output is an informational PR comment only.
 
 **Tasks:**
-- [ ] Register a GitHub App (App ID, webhook secret, private key, required permissions)
-- [ ] Scaffold NestJS backend (`main.ts`, `app.module.ts`, base config)
-- [ ] `docker-compose.yml` for Postgres (with pgvector) and Redis
-- [ ] Prisma schema for `users`, `repos`, `builds`, `diagnoses` (subset of `backend-schema.md`)
-- [ ] Webhook receiver: signature validation, fast-ack, enqueue (FR-4, FR-5)
-- [ ] BullMQ queue + a separate worker process
-- [ ] `GithubService`: installation auth, fetch a placeholder log string, post a PR comment
-- [ ] `AiProvider` interface + a working Groq implementation
-- [ ] Worker: on a queued job, call the AI provider with placeholder context and post the result as a comment
+- [x] Register a GitHub App (App ID, webhook secret, private key, required permissions) ✅ done (PR #3c1ec84)
+- [x] Scaffold NestJS backend (`main.ts`, `app.module.ts`, base config) ✅ done (PR #8cfb434)
+- [x] `docker-compose.yml` for Postgres (with pgvector) and Redis ✅ done (PR #3ab3110)
+- [x] Prisma schema for `users`, `repos`, `builds`, `diagnoses` (subset of `backend-schema.md`) ✅ done (PR #60d6a17)
+- [x] Webhook receiver: signature validation, fast-ack, enqueue (FR-4, FR-5) ✅ done (PR #b2e0f07)
+- [x] BullMQ queue + a separate worker process ✅ done (PR #459212a)
+- [x] `GithubService`: installation auth, fetch a placeholder log string, post a PR comment ✅ done (PR #b0d0b25)
+- [x] `AiProvider` interface + a working Groq implementation ✅ done (PR #6092619)
+- [x] Worker: on a queued job, call the AI provider with placeholder context and post the result as a comment ✅ done (PR #46e557d)
 
 **Acceptance criteria:**
 - Pushing a commit that fails CI on a connected test repository results in a PR comment within a reasonable time, with no manual intervention.
@@ -35,12 +35,12 @@ The guiding principle throughout: build a **thin, working, end-to-end pipeline f
 **Depends on:** Phase 0.
 
 **Tasks:**
-- [ ] Full Prisma schema per `backend-schema.md` (all 8 tables, indexes, constraints)
+- [x] Full Prisma schema per `backend-schema.md` (all 8 tables, indexes, constraints) ✅ done (PR #60d6a17)
 - [ ] OAuth login flow for users (FR-1)
 - [ ] Repository connection flow, including `autonomy_level` selection (FR-2)
 - [ ] `push` and `pull_request` event ingestion, not just `workflow_run` (FR-3)
 - [ ] Secrets redaction utility applied to all log/code content at ingestion (FR-6)
-- [ ] Per-repo/per-branch distributed locking via Redis (FR-7)
+- [x] Per-repo/per-branch distributed locking via Redis (FR-7) ✅ done (PR #6cc02f7)
 
 **Acceptance criteria:**
 - A new user can authenticate via GitHub OAuth and connect a repository end to end through the UI or API, with the chosen autonomy level persisted.
@@ -57,11 +57,11 @@ The guiding principle throughout: build a **thin, working, end-to-end pipeline f
 
 **Tasks:**
 - [ ] Log archive download + unzip from the GitHub Actions API
-- [ ] Log normalization: strip ANSI/timestamps, deduplicate stack frames, extract error signature (FR-8)
+- [x] Log normalization: strip ANSI/timestamps, deduplicate stack frames, extract error signature (FR-8) ✅ done (PR #af5b0a9)
 - [ ] Embedding pipeline: chunk repository code, generate embeddings, populate `code_embeddings`
 - [ ] Diff-aware re-indexing on push (only changed files re-embedded)
 - [ ] pgvector similarity search (semantic retrieval half of FR-9)
-- [ ] Tree-sitter AST parsing + dependency graph traversal (structural retrieval half of FR-9)
+- [x] Tree-sitter AST parsing + dependency graph traversal (structural retrieval half of FR-9) ✅ done (PR #c20d42a)
 - [ ] Retrieval ranking: combine and de-duplicate results from both retrieval paths
 
 **Acceptance criteria:**
@@ -78,11 +78,11 @@ The guiding principle throughout: build a **thin, working, end-to-end pipeline f
 **Depends on:** Phase 2 (retrieval feeds the diagnosis loop's context).
 
 **Tasks:**
-- [ ] Bounded tool-calling diagnosis loop (read code, propose diff, self-report confidence) (FR-10)
+- [x] Bounded tool-calling diagnosis loop (read code, propose diff, self-report confidence) (FR-10) ✅ done (PR #46e557d)
 - [ ] Prompt-injection guard: repository content is passed as data, never merged into system instructions (FR-10, NFR-Security)
 - [ ] Infra-failure classifier: short-circuits the fix-generation path for `fix_type = 'infra'` (FR-11)
-- [ ] Sandbox executor: Docker + gVisor runtime, resource limits (CPU/memory/time) (FR-12)
-- [ ] Patch application + build/lint/test execution inside the sandbox
+- [x] Sandbox executor: Docker + gVisor runtime, resource limits (CPU/memory/time) (FR-12) ✅ done (PR #7d0ad98)
+- [x] Patch application + build/lint/test execution inside the sandbox ✅ done (PR #7b0db71)
 - [ ] Bounded retry loop: sandbox failure → back to diagnosis loop with failure context, up to configured max (FR-13)
 - [ ] Resource-safety timeout distinct from a performance target (FR-14)
 - [ ] Self-hosted `AiProvider` implementation (vLLM/Ollama-served open-weight model), swappable via the existing interface
@@ -102,10 +102,10 @@ The guiding principle throughout: build a **thin, working, end-to-end pipeline f
 **Depends on:** Phase 3 (needs validated diagnoses to review).
 
 **Tasks:**
-- [ ] `approvals` table wiring + `ApprovalService`
-- [ ] Approval queue API: list pending diagnoses with diff, sandbox log, and confidence attached (FR-15)
-- [ ] Approve / request-changes / reject actions (FR-16)
-- [ ] Structural enforcement: `github.openDraftPullRequest()` requires an `approvals` row with `decision = 'approved'` as a precondition (FR-17)
+- [x] `approvals` table wiring + `ApprovalService` ✅ done (PR #331959f)
+- [x] Approval queue API: list pending diagnoses with diff, sandbox log, and confidence attached (FR-15) ✅ done (PR #331959f)
+- [x] Approve / request-changes / reject actions (FR-16) ✅ done (PR #3b660db)
+- [x] Structural enforcement: `github.openDraftPullRequest()` requires an `approvals` row with `decision = 'approved'` as a precondition (FR-17) ✅ done (PR #3b660db)
 - [ ] Rejection logging, no PR path on rejection (FR-18)
 - [ ] Confidence-threshold gating for reviewer notifications (FR-19)
 - [ ] Frontend: approval queue UI (`frontend/app/approvals`)
@@ -125,9 +125,9 @@ The guiding principle throughout: build a **thin, working, end-to-end pipeline f
 
 **Tasks:**
 - [ ] `evaluation_set` seeded with hand-verified historical failures (FR-21)
-- [ ] Scheduled evaluation runner comparing live pipeline output to `expected_root_cause` (FR-22)
+- [x] Scheduled evaluation runner comparing live pipeline output to `expected_root_cause` (FR-22) ✅ done (PR #bc90c6e)
 - [ ] Accuracy trend reporting, surfaced on the dashboard
-- [ ] Prometheus metrics: queue depth, diagnosis latency, sandbox pass/fail rate, approval rate
+- [x] Prometheus metrics: queue depth, diagnosis latency, sandbox pass/fail rate, approval rate ✅ done (PR #00463a3)
 - [ ] Loki structured log shipping
 - [ ] Grafana dashboards (operational) + application dashboard (product-facing, FR-20)
 - [ ] Security review pass: sandbox escape testing, prompt-injection adversarial test suite, secrets-redaction pattern coverage review

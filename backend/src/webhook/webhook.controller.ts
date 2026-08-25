@@ -53,6 +53,16 @@ try {
         return; // only diagnose actual failures, ignore successes and in-progress runs
       }
 
+      // Never diagnose Iris's own fix branches -- otherwise an opened PR's
+      // CI failure would trigger Iris to diagnose its own proposed fix,
+      // which could spiral (fix branch -> CI run -> diagnosis -> another
+      // fix branch -> ...). Fix branches are named "iris-fix-<prefix>" in
+      // approval.service.ts.
+      if (payload.workflow_run.head_branch?.startsWith("iris-fix-")) {
+        this.logger.log(`Skipping diagnosis for Iris's own fix branch: ${payload.workflow_run.head_branch}`);
+        return;
+      }
+
       const repo = await this.prisma.repo.findFirst({
         where: { githubRepoId: String(payload.repository.id) },
       });
