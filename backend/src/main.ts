@@ -7,6 +7,7 @@ async function bootstrap() {
   // rawBody: true is required for GitHub webhook signature verification
   // (see webhook/webhook.controller.ts) -- Satisfies: FR-4
   const app = await NestFactory.create(AppModule, { rawBody: true });
+  app.enableCors({ origin: "http://localhost:3001" });
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   await app.listen(port);
   Logger.log(`Iris API listening on port ${port}`, "Bootstrap");
