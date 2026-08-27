@@ -8,6 +8,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.AUTH_GITHUB_SECRET,
     }),
   ],
+  pages: {
+    signIn: "/auth/signin",
+  },
   callbacks: {
     async jwt({ token, profile }) {
       if (profile) {
@@ -23,3 +26,4 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+

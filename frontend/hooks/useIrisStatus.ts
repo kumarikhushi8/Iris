@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { getIrisUserId } from "@/hooks/useUserSync";
 
 export type IrisMood = "idle" | "working" | "happy";
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export function useIrisStatus() {
   const [mood, setMood] = useState<IrisMood>("idle");
@@ -12,7 +15,11 @@ export function useIrisStatus() {
 
     async function poll() {
       try {
-        const res = await fetch("http://localhost:3000/approvals");
+        const userId = getIrisUserId();
+        const headers: Record<string, string> = {};
+        if (userId) headers["x-user-id"] = userId;
+
+        const res = await fetch(`${API}/approvals`, { headers });
         const approvals = await res.json();
         const pending = approvals.filter((a: any) => a.decision === "pending").length;
 
