@@ -9,10 +9,11 @@ import { AiModule } from "./ai/ai.module";
 import { ApprovalModule } from "./approval/approval.module";
 import { EvaluationModule } from "./evaluation/evaluation.module";
 import { ObservabilityModule } from "./observability/observability.module";
+import { ReposModule } from "./repos/repos.module";
+import { UsersModule } from "./users/users.module";
 
-// Phase 0 wiring only. retrieval/, sandbox/, approval/, notification/,
-// evaluation/, and observability/ exist as directories (see
-// folder-structure.md) but are not yet imported here -- see
+// Phase 0 + Phase 1 modules wired. retrieval/, sandbox/, notification/
+// exist as directories but are not yet imported -- see
 // implementation-plan.md Phases 2-5 for when each is wired in.
 @Module({
   imports: [
@@ -28,6 +29,8 @@ import { ObservabilityModule } from "./observability/observability.module";
     AiModule,
     QueueModule,
     WebhookModule,
+    UsersModule,
+    ReposModule,
     ApprovalModule,
     EvaluationModule,
     ObservabilityModule,
