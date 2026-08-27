@@ -17,10 +17,9 @@ import { MetricsService } from "../observability/metrics.service";
 // limited Docker container and actually runs its test command -- no fix
 // or diagnosis is ever trusted without having been executed here first.
 //
-// Isolation posture for this phase: plain Docker with --network none and
-// enforced CPU/memory/time limits. Kernel-level isolation via gVisor is a
-// documented future hardening step (see implementation-plan.md, Phase 5),
-// not implemented here -- noted explicitly rather than silently assumed.
+// Isolation posture for this phase: hardened Docker with --network none,
+// enforced CPU/memory/time limits, and kernel-level isolation via gVisor
+// (--runtime=runsc) to prevent container escape exploits.
 
 export interface SandboxResult {
   result: "pass" | "fail" | "timeout" | "patch_failed";
@@ -86,6 +85,7 @@ export class SandboxExecutorService {
         "run",
         "--rm",
         "--name", containerName,
+        "--runtime", "runsc",
         "--network", "none",
         "--memory", `${runtimeConfig.memoryLimitMb}m`,
         "--cpus", runtimeConfig.cpuLimit,

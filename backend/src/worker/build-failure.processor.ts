@@ -15,6 +15,7 @@ import { EmbeddingService } from "../retrieval/embedding.service";
 import { SandboxExecutorService } from "../sandbox/sandbox-executor.service";
 import { redactSecrets } from "../common/redact-secrets";
 import { MetricsService } from "../observability/metrics.service";
+import { NotificationService } from "../notification/notification.service";
 
 // Satisfies: FR-8, FR-9, FR-10, FR-12, FR-13, FR-14
 // Full Phase 3 pipeline: diagnose -> apply proposed fix in an isolated
@@ -38,6 +39,7 @@ export class BuildFailureProcessor extends WorkerHost {
     private readonly sandbox: SandboxExecutorService,
     private readonly config: ConfigService,
     private readonly metrics: MetricsService,
+    private readonly notification: NotificationService,
     @Inject(AI_PROVIDER) private readonly ai: AiProvider,
   ) {
     super();
@@ -219,6 +221,15 @@ export class BuildFailureProcessor extends WorkerHost {
       // record the moment it's ready for review, not just a status flag.
       await this.prisma.approval.create({
         data: { diagnosisId: diagnosis.id, decision: "pending" },
+      });
+
+      // FR-19: Notify human reviewers based on confidence threshold
+      await this.notification.notifyReviewers({
+        diagnosisId: diagnosis.id,
+        repoName: data.repo,
+        pullRequestNumber: data.pullRequestNumber ?? undefined,
+        branch: data.branch,
+        confidence: finalDiagnosisResult!.confidence,
       });
     } else if (attempt > this.maxRetries) {
       finalOutcome = "inconclusive";

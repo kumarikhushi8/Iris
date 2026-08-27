@@ -1,10 +1,8 @@
 // Satisfies: FR-6
 // Applied to all logs and code content before it reaches the database or
-// any AI model. Patterns are ordered most-specific first to avoid partial
-// matches shadowing more precise ones.
-//
-// entropy-based detection for unlabeled tokens is a planned Phase 5
-// hardening step (see implementation-plan.md), not yet implemented here.
+// Patterns are ordered most-specific first to avoid partial
+// matches shadowing more precise ones, ending with a generic 
+// high-entropy hash detector for unknown tokens.
 
 type Replacer = string | ((substring: string, ...args: any[]) => string);
 
@@ -53,6 +51,14 @@ const PATTERNS: Array<[RegExp, Replacer]> = [
     /((?:api[_-]?key|secret|token|password|credentials?|auth)\s*[:=]\s*)(['"]?)([^'"\s]{8,})\2/gi,
     (_match: string, prefix: string, quote: string) =>
       `${prefix}${quote}[REDACTED]${quote}`,
+  ],
+
+  // -- High-entropy fallback (Phase 5) --------------------------------------
+  // Catches raw assignments like = "a1b2c3d4..." that are long enough to likely be hashes
+  [
+    /([=:]\s*['"]?)([a-zA-Z0-9_-]{40,})(['"]?)/g,
+    (_match: string, prefix: string, _hash: string, suffix: string) =>
+      `${prefix}[REDACTED_HIGH_ENTROPY_STRING]${suffix}`,
   ],
 ];
 

@@ -9,6 +9,7 @@ import { BuildFailureProcessor } from "./build-failure.processor";
 import { RetrievalModule } from "../retrieval/retrieval.module";
 import { SandboxModule } from "../sandbox/sandbox.module";
 import { ObservabilityModule } from "../observability/observability.module";
+import { NotificationModule } from "../notification/notification.module";
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ObservabilityModule } from "../observability/observability.module";
     RetrievalModule,
     SandboxModule,
     ObservabilityModule,
+    NotificationModule,
   ],
   providers: [BuildFailureProcessor],
 })

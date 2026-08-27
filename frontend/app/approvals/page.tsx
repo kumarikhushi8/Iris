@@ -224,6 +224,12 @@ export default function ApprovalsPage() {
             >
               My repos →
             </Link>
+            <Link
+              href="/dashboard"
+              className="text-xs text-coral-900/50 hover:text-coral-900 transition-colors"
+            >
+              Dashboard →
+            </Link>
             <button
               onClick={load}
               className="text-xs text-coral-900/40 hover:text-coral-600 transition-colors"

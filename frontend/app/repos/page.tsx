@@ -328,6 +328,9 @@ export default function ReposPage() {
               <Link href="/approvals" className="text-xs text-coral-900/50 hover:text-coral-900 transition-colors">
                 Review queue →
               </Link>
+              <Link href="/dashboard" className="text-xs text-coral-900/50 hover:text-coral-900 transition-colors">
+                Dashboard →
+              </Link>
               <button
                 onClick={() => setShowModal(true)}
                 className="bg-coral-600 hover:bg-coral-900 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm"
