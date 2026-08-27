@@ -10,6 +10,8 @@ import { AI_PROVIDER } from "../ai/ai.module";
 import type { AiProvider, DiagnosisResult } from "../ai/ai-provider.interface";
 import { LogNormalizationService } from "../retrieval/log-normalization.service";
 import { StructuralRetrievalService } from "../retrieval/structural-retrieval.service";
+import { InfraClassifierService } from "../retrieval/infra-classifier.service";
+import { EmbeddingService } from "../retrieval/embedding.service";
 import { SandboxExecutorService } from "../sandbox/sandbox-executor.service";
 import { redactSecrets } from "../common/redact-secrets";
 import { MetricsService } from "../observability/metrics.service";
@@ -31,6 +33,8 @@ export class BuildFailureProcessor extends WorkerHost {
     private readonly github: GithubService,
     private readonly logNormalization: LogNormalizationService,
     private readonly structuralRetrieval: StructuralRetrievalService,
+    private readonly infraClassifier: InfraClassifierService,
+    private readonly embedding: EmbeddingService,
     private readonly sandbox: SandboxExecutorService,
     private readonly config: ConfigService,
     private readonly metrics: MetricsService,
@@ -73,6 +77,32 @@ export class BuildFailureProcessor extends WorkerHost {
       );
     }
 
+    // FR-11: Pre-AI infra classifier — short-circuit if the log matches a
+    // known infrastructure failure pattern (OOM, disk, DNS, runner issues).
+    // No AI token is spent; we post a targeted comment and mark inconclusive.
+    const infraCheck = this.infraClassifier.classify(logExcerpt);
+    if (infraCheck.isInfra) {
+      const diagInfra = await this.prisma.diagnosis.create({
+        data: { buildId: build.id, status: "inconclusive", fixType: "infra",
+                rootCause: infraCheck.reason, confidence: 1.0 },
+      });
+      await this.prisma.build.update({ where: { id: build.id }, data: { status: "failed" } });
+      if (data.pullRequestNumber) {
+        const repo = await this.prisma.repo.findUnique({ where: { id: data.repoDbId } });
+        if (repo) {
+          await this.github.postComment(
+            data.installationId, data.owner, data.repo, data.pullRequestNumber,
+            this.formatInfraComment(infraCheck.reason),
+          );
+        }
+      }
+      this.metrics.diagnosesTotal.inc({ outcome: "infra" });
+      this.metrics.diagnosisLatency.observe((Date.now() - processingStart) / 1000);
+      this.logger.log(`Infra failure short-circuit for build ${build.id}: ${infraCheck.reason}`);
+      return;
+    }
+
+    // FR-9: Structural retrieval — find files the log references by path.
     const referencedFiles = this.structuralRetrieval.findReferencedFiles(logExcerpt);
     const relevantCode: Array<{ filePath: string; content: string }> = [];
     for (const filePath of referencedFiles) {
@@ -86,6 +116,16 @@ export class BuildFailureProcessor extends WorkerHost {
       if (content) {
         this.logger.log(`Fetched ${content.length} chars of code from ${filePath}`);
         relevantCode.push({ filePath, content });
+      }
+    }
+
+    // FR-9 (semantic): if structural retrieval found nothing, fall back to
+    // pgvector nearest-neighbour search over indexed embeddings.
+    if (relevantCode.length === 0) {
+      const semanticResults = await this.embedding.retrieveSimilar(data.repoDbId, logExcerpt);
+      relevantCode.push(...semanticResults);
+      if (semanticResults.length > 0) {
+        this.logger.log(`Structural retrieval found 0 files; using ${semanticResults.length} semantic result(s)`);
       }
     }
 
@@ -218,7 +258,7 @@ export class BuildFailureProcessor extends WorkerHost {
     diagnosisResult: DiagnosisResult,
     retries: number,
   ): string {
-    const header = "**Iris diagnosis** (informational only -- human approval required before any fix is proposed as a PR, Phase 4 not yet implemented)";
+    const header = "**🤖 Iris diagnosis** — a validated fix is awaiting your review in the [Iris approval queue](/)";
     const base = [
       `**Likely cause:** ${diagnosisResult.rootCause}`,
       `**Category:** ${diagnosisResult.fixType}`,
@@ -226,13 +266,25 @@ export class BuildFailureProcessor extends WorkerHost {
     ];
 
     if (outcome === "validated") {
-      base.push(`**Fix status:** ✅ A proposed fix was applied and validated in an isolated sandbox -- tests pass.`);
+      base.push(`**Fix status:** ✅ A proposed fix was applied and validated in an isolated sandbox — tests pass. Review it in the Iris approval queue.`);
     } else if (outcome === "inconclusive") {
-      base.push(`**Fix status:** ⚠️ ${retries} proposed fix attempt(s) failed sandbox validation. Marked inconclusive -- manual review needed.`);
+      base.push(`**Fix status:** ⚠️ ${retries} proposed fix attempt(s) failed sandbox validation. Marked inconclusive — manual review needed.`);
     } else {
-      base.push(`**Fix status:** No automated fix was attempted for this failure type.`);
+      base.push(`**Fix status:** ℹ️ No automated fix was attempted for this failure type.`);
     }
 
     return [header, "", ...base].join("\n");
+  }
+
+  private formatInfraComment(reason: string): string {
+    return [
+      "**🤖 Iris diagnosis — infrastructure failure**",
+      "",
+      `**Likely cause:** ${reason}`,
+      "**Category:** infra",
+      "",
+      "This failure matches a known infrastructure pattern (not a code bug). " +
+        "No fix can be automatically proposed — re-running the job is the recommended next step.",
+    ].join("\n");
   }
 }

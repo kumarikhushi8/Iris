@@ -11,6 +11,7 @@ import { repoBranchLockKey } from "../queue/repo-branch-lock.service";
 import { PrismaService } from "../database/prisma.service";
 import { Logger } from "@nestjs/common";
 import { MetricsService } from "../observability/metrics.service";
+import { EmbeddingService } from "../retrieval/embedding.service";
 
 // Satisfies: FR-4, FR-5, FR-7
 // This is the one HTTP-facing edge of the whole system. Its only job is to
@@ -28,6 +29,7 @@ export class WebhookController {
     private readonly prisma: PrismaService,
     private readonly github: GithubService,
     private readonly metrics: MetricsService,
+    private readonly embedding: EmbeddingService,
     @InjectQueue(BUILD_FAILURE_QUEUE) private readonly queue: Queue<BuildFailureJobPayload>,
   ) {}
 
@@ -151,6 +153,34 @@ try {
 
     this.logger.log(`Recorded push for ${payload.repository.full_name}@${branch} (${payload.after?.slice(0, 7)})`);
     this.metrics.webhooksReceived.inc({ outcome: "push_recorded" });
+
+    // FR-9: Diff-aware semantic re-indexing.
+    // Gather all added/modified files across all commits in this push.
+    const changedFiles = new Set<string>();
+    for (const commit of payload.commits || []) {
+      for (const f of commit.added || []) changedFiles.add(f);
+      for (const f of commit.modified || []) changedFiles.add(f);
+    }
+
+    if (changedFiles.size > 0 && payload.installation?.id) {
+      this.logger.log(`Indexing ${changedFiles.size} changed file(s) for semantic retrieval...`);
+      for (const filePath of changedFiles) {
+        try {
+          const content = await this.github.getFileContent(
+            String(payload.installation.id),
+            payload.repository.owner.login,
+            payload.repository.name,
+            filePath,
+            payload.after,
+          );
+          if (content) {
+            await this.embedding.indexFile(repo.id, filePath, content);
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to index ${filePath}: ${(err as Error).message}`);
+        }
+      }
+    }
   }
 
   // ── pull_request: record PR head commit for context (FR-3) ────────────────
