@@ -55,7 +55,7 @@ Iris is organized into six layers:
 5. **Human oversight** — the mandatory approval queue
 6. **Data & observability** — PostgreSQL/pgvector, Prometheus, Loki, and Grafana
 
-The webhook receiver responds to GitHub within its delivery timeout and does no slow work inline — everything past validation and enqueueing happens asynchronously in a separate worker process. This is a deliberate reliability boundary, not an implementation detail: GitHub retries deliveries that don't get a fast 2xx response, so nothing diagnosis-related is allowed to sit in that code path.
+The webhook receiver responds to GitHub within its delivery timeout and does no slow work inline — everything past validation and enqueueing happens asynchronously in a background worker. This is a deliberate reliability boundary, not an implementation detail: GitHub retries deliveries that don't get a fast 2xx response, so nothing diagnosis-related is allowed to sit in that code path.
 
 ## End-to-end workflow
 
@@ -130,7 +130,7 @@ iris/
       webhook/                 Signature verification + fast enqueue
       queue/                   BullMQ queue definition + job payload types
       worker/
-        main.ts                 Separate worker process entrypoint
+        main.ts                 Legacy worker process entrypoint
         build-failure.processor.ts   The diagnosis pipeline
       retrieval/                Hybrid (pgvector + AST) code retrieval
       ai/                       Provider-agnostic diagnosis interface + implementations
@@ -176,10 +176,9 @@ npm install
 npm run prisma:generate
 npm run prisma:migrate
 
-# 5. Run it (three terminals)
+# 5. Run it (two terminals)
 ngrok http 3000            # tunnel so GitHub can reach the webhook
-npm run start:dev          # API / webhook receiver
-npm run start:worker       # worker process
+npm run start:dev          # API, webhook receiver, and background workers
 ```
 
 Install the GitHub App on a small test repository, push a commit that fails CI, and watch the worker pick up the job.
@@ -188,7 +187,7 @@ Install the GitHub App on a small test repository, push a commit that fails CI, 
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | Postgres connection string |
+| `DATABASE_URL`, `DIRECT_URL` | Postgres connection strings (`DIRECT_URL` used for migrations) |
 | `REDIS_HOST`, `REDIS_PORT` | Queue connection |
 | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `GITHUB_WEBHOOK_SECRET` | GitHub App auth |
 | `AI_PROVIDER`, `GROQ_API_KEY`, `GROQ_MODEL` | AI inference provider selection |
@@ -221,5 +220,4 @@ Recommended build order — a *working, thin, end-to-end pipeline first*, harden
 - **Infrastructure-level failures are out of scope for automated fixes.** Network, permissions, cloud outages, and secret misconfiguration are classified and reported, not auto-resolved.
 - **Multi-language support is incremental**, not universal at launch — each language/ecosystem needs its own log-parsing and build-system adapter.
 - **Diagnosis accuracy is bounded by model capability.** Self-hostable open-weight coding models currently trail frontier closed models by a meaningful margin on real-world software engineering benchmarks; this is a known, tracked trade-off, not a hidden one.
-- **Worker-process metrics are not yet queryable.** The API process and the worker process each run as separate Node processes, and Prometheus counters (`prom-client`) live in per-process memory rather than a shared store. Webhook-related metrics (exposed by the API process) are correctly visible at `GET /metrics`; diagnosis and sandbox metrics (incremented in the worker process) accumulate correctly internally but have no HTTP endpoint to expose them from, since the worker has no HTTP server. The correct fix is a second, worker-side `/metrics` endpoint scraped as a separate Prometheus target — not an attempt to share in-process state across processes, which isn't how Node or `prom-client` work. Tracked as a Phase 5 follow-up.
 - **Semantic retrieval implemented but not yet enabled.** The code embedding and cosine similarity query logic is complete, but it is explicitly disabled by default (`SEMANTIC_RETRIEVAL_ENABLED=false`). It requires a real Gemini API key to function. The system successfully relies on AST/structural retrieval (regex-based matching) in the meantime.
