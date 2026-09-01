@@ -30,12 +30,14 @@ const EMBED_BATCH_SIZE = 5; // sequential to stay within free-tier rate limits
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
+  private readonly enabled: boolean;
   private readonly apiKey: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
+    this.enabled = this.config.get<string>("SEMANTIC_RETRIEVAL_ENABLED") === "true";
     this.apiKey = this.config.get<string>("GEMINI_API_KEY") ?? "";
   }
 
@@ -47,8 +49,11 @@ export class EmbeddingService {
    * Called by the push handler for changed files (diff-aware re-indexing).
    */
   async indexFile(repoId: string, filePath: string, content: string): Promise<void> {
-    if (!this.apiKey) {
-      this.logger.warn("GEMINI_API_KEY not set — skipping embedding indexing");
+    if (!this.enabled) {
+      return;
+    }
+    if (!this.apiKey || this.apiKey.startsWith("AQ.Ab8")) {
+      this.logger.warn("Valid GEMINI_API_KEY not set — skipping embedding indexing");
       return;
     }
 
@@ -93,8 +98,11 @@ export class EmbeddingService {
     logExcerpt: string,
     maxChunks = 5,
   ): Promise<Array<{ filePath: string; content: string }>> {
-    if (!this.apiKey) {
-      this.logger.warn("GEMINI_API_KEY not set — skipping semantic retrieval");
+    if (!this.enabled) {
+      return [];
+    }
+    if (!this.apiKey || this.apiKey.startsWith("AQ.Ab8")) {
+      this.logger.warn("Valid GEMINI_API_KEY not set — skipping semantic retrieval");
       return [];
     }
 
