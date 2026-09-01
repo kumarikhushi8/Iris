@@ -20,14 +20,23 @@ export class GithubService {
   private async getInstallationClient(installationId: string): Promise<Octokit> {
     const appId = this.config.get<string>("GITHUB_APP_ID");
     const privateKeyPath = this.config.get<string>("GITHUB_APP_PRIVATE_KEY_PATH");
+    const privateKeyEnv = this.config.get<string>("GITHUB_APP_PRIVATE_KEY");
 
-    if (!appId || !privateKeyPath) {
-      throw new Error("GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_PATH must be configured");
+    if (!appId || (!privateKeyPath && !privateKeyEnv)) {
+      throw new Error("GITHUB_APP_ID and either GITHUB_APP_PRIVATE_KEY or GITHUB_APP_PRIVATE_KEY_PATH must be configured");
     }
 
-    const privateKey = fs.readFileSync(privateKeyPath, "utf8");
+    let privateKey = privateKeyEnv;
+    if (!privateKey && privateKeyPath) {
+      privateKey = fs.readFileSync(privateKeyPath, "utf8");
+    }
 
-    const auth = createAppAuth({ appId, privateKey });
+    // When passing multi-line strings in some CI/CD envs, literal \n might be escaped
+    if (privateKey) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+
+    const auth = createAppAuth({ appId, privateKey: privateKey as string });
     const installationAuth = await auth({
       type: "installation",
       installationId: Number(installationId),
