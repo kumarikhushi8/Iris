@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -274,7 +274,7 @@ function Field({
   );
 }
 
-export default function ReposPage() {
+function ReposContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const initialInstallationId = searchParams?.get("installation_id") ?? "";
@@ -531,5 +531,13 @@ export default function ReposPage() {
         </div>
       </main>
     </>
+  );
+}
+
+export default function ReposPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-cream" />}>
+      <ReposContent />
+    </Suspense>
   );
 }
