@@ -276,10 +276,13 @@ function Field({
 
 export default function ReposPage() {
   const { data: session, status } = useSession();
+  const searchParams = useSearchParams();
+  const initialInstallationId = searchParams?.get("installation_id") ?? "";
+
   const [repos, setRepos] = useState<Repo[]>([]);
   const [pageState, setPageState] = useState<PageState>("loading");
   const [errorMsg, setErrorMsg] = useState("");
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(!!initialInstallationId);
   const [changingId, setChangingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
