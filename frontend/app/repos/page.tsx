@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSession, signIn } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mascot } from "@/components/Mascot";
 import { getIrisUserId } from "@/hooks/useUserSync";
@@ -277,6 +277,7 @@ function Field({
 function ReposContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialInstallationId = searchParams?.get("installation_id") ?? "";
 
   const [repos, setRepos] = useState<Repo[]>([]);
@@ -285,6 +286,13 @@ function ReposContent() {
   const [showModal, setShowModal] = useState(!!initialInstallationId);
   const [changingId, setChangingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Clear URL parameter so it doesn't pop up again on refresh
+  useEffect(() => {
+    if (initialInstallationId) {
+      router.replace("/repos", { scroll: false });
+    }
+  }, [initialInstallationId, router]);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
