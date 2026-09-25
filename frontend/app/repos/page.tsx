@@ -158,7 +158,7 @@ function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnect
               type="button"
               onClick={fetchRepos}
               disabled={fetchingRepos || !form.installationId}
-              className="px-4 py-2.5 bg-coral-100 hover:bg-coral-200 text-coral-900 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+              className="px-4 py-2.5 bg-coral-50 border border-coral-200 hover:bg-coral-200 text-coral-900 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
             >
               {fetchingRepos ? "..." : "Fetch Repos"}
             </button>
