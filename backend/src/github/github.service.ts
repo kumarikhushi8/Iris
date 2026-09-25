@@ -86,6 +86,15 @@ export class GithubService {
   }
 
   /**
+   * Fetches the repositories this installation has access to.
+   */
+  async getInstallationRepositories(installationId: string) {
+    const octokit = await this.getInstallationClient(installationId);
+    const { data } = await octokit.rest.apps.listReposAccessibleToInstallation();
+    return data.repositories;
+  }
+
+  /**
    * Downloads a tarball snapshot of the repo at a specific commit --
    * used by the sandbox executor to get an exact, isolated copy of the
    * code to validate a fix against (Phase 3, FR-12).

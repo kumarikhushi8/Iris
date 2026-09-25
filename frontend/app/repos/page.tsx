@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import { useSession, signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mascot } from "@/components/Mascot";
 import { getIrisUserId } from "@/hooks/useUserSync";
@@ -44,17 +45,54 @@ function SkeletonRepo() {
 }
 
 function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnected: () => void }) {
+  const searchParams = useSearchParams();
+  const initialInstallationId = searchParams?.get("installation_id") ?? "";
+
   const [form, setForm] = useState({
-    githubRepoId: "",
-    name: "",
-    installationId: "",
+    installationId: initialInstallationId,
     autonomyLevel: "comment_only" as "comment_only" | "draft_pr_eligible",
   });
+  const [selectedRepo, setSelectedRepo] = useState<{id: number; full_name: string} | null>(null);
+  
+  const [availableRepos, setAvailableRepos] = useState<any[]>([]);
+  const [fetchingRepos, setFetchingRepos] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
+  const fetchRepos = async () => {
+    if (!form.installationId) return;
+    setFetchingRepos(true);
+    setErr("");
+    try {
+      const userId = getIrisUserId();
+      const headers: Record<string, string> = {};
+      if (userId) headers["x-user-id"] = userId;
+
+      const res = await fetch(`${API}/repos/installation/${form.installationId}/repositories`, { headers });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.message ?? `Failed to fetch repos: ${res.status}`);
+      }
+      const data = await res.json();
+      setAvailableRepos(data);
+      if (data.length > 0) setSelectedRepo(data[0]);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setFetchingRepos(false);
+    }
+  };
+
+  useEffect(() => {
+    if (initialInstallationId) fetchRepos();
+  }, [initialInstallationId]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!selectedRepo) {
+      setErr("Please select a repository");
+      return;
+    }
     setSaving(true);
     setErr("");
     try {
@@ -65,7 +103,12 @@ function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnect
       const res = await fetch(`${API}/repos`, {
         method: "POST",
         headers,
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          githubRepoId: selectedRepo.id.toString(),
+          name: selectedRepo.full_name,
+          installationId: form.installationId,
+          autonomyLevel: form.autonomyLevel,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -96,32 +139,48 @@ function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnect
         <div>
           <h2 className="text-xl font-medium text-coral-900">Connect a repository</h2>
           <p className="text-coral-900/50 text-sm mt-1">
-            You'll need your GitHub App installation ID and the numeric repository ID.
+            Provide your GitHub App installation ID, and we'll fetch your repositories automatically.
           </p>
         </div>
 
         <div className="space-y-4">
-          <Field
-            label="Repository name"
-            placeholder="owner/repo-name"
-            value={form.name}
-            onChange={(v) => setForm((f) => ({ ...f, name: v }))}
-            required
-          />
-          <Field
-            label="GitHub Repository ID"
-            placeholder="Numeric repo ID (e.g. 123456789)"
-            value={form.githubRepoId}
-            onChange={(v) => setForm((f) => ({ ...f, githubRepoId: v }))}
-            required
-          />
-          <Field
-            label="GitHub App Installation ID"
-            placeholder="Installation ID from GitHub App settings"
-            value={form.installationId}
-            onChange={(v) => setForm((f) => ({ ...f, installationId: v }))}
-            required
-          />
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field
+                label="GitHub App Installation ID"
+                placeholder="e.g. 12345678"
+                value={form.installationId}
+                onChange={(v) => setForm((f) => ({ ...f, installationId: v }))}
+                required
+              />
+            </div>
+            <button
+              type="button"
+              onClick={fetchRepos}
+              disabled={fetchingRepos || !form.installationId}
+              className="px-4 py-2.5 bg-coral-100 hover:bg-coral-200 text-coral-900 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {fetchingRepos ? "..." : "Fetch Repos"}
+            </button>
+          </div>
+
+          {availableRepos.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-coral-900/70">Select Repository</label>
+              <select
+                className="w-full border border-coral-100 rounded-xl px-4 py-2.5 text-sm text-coral-900 bg-white focus:border-coral-600 focus:ring-2 focus:ring-coral-600/10 outline-none"
+                value={selectedRepo?.id || ""}
+                onChange={(e) => {
+                  const r = availableRepos.find(r => r.id.toString() === e.target.value);
+                  if (r) setSelectedRepo(r);
+                }}
+              >
+                {availableRepos.map(r => (
+                  <option key={r.id} value={r.id}>{r.full_name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-coral-900/70">Autonomy level</label>
@@ -155,7 +214,7 @@ function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnect
         <div className="flex gap-3 pt-1">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !selectedRepo}
             className="flex-1 bg-coral-600 hover:bg-coral-900 text-white py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {saving && (

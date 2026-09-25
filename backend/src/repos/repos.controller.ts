@@ -10,7 +10,7 @@ import {
   UnauthorizedException,
 } from "@nestjs/common";
 import { ReposService } from "./repos.service";
-
+import { GithubService } from "../github/github.service";
 // Satisfies: FR-2
 // Repository connection + autonomy configuration endpoints.
 //
@@ -20,13 +20,26 @@ import { ReposService } from "./repos.service";
 // backend user record (see users/ module).
 @Controller("repos")
 export class ReposController {
-  constructor(private readonly reposService: ReposService) {}
+  constructor(
+    private readonly reposService: ReposService,
+    private readonly githubService: GithubService,
+  ) {}
 
   /** List all repos connected by the authenticated user. */
   @Get()
   list(@Headers("x-user-id") userId: string) {
     this.requireUserId(userId);
     return this.reposService.listForUser(userId);
+  }
+
+  /** Get repositories accessible to a specific installation ID */
+  @Get("installation/:installationId/repositories")
+  async getInstallationRepositories(
+    @Headers("x-user-id") userId: string,
+    @Param("installationId") installationId: string,
+  ) {
+    this.requireUserId(userId);
+    return this.githubService.getInstallationRepositories(installationId);
   }
 
   /**
