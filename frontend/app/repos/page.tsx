@@ -145,42 +145,37 @@ function ConnectModal({ onClose, onConnected }: { onClose: () => void; onConnect
         </div>
 
         <div className="space-y-4">
-          {!form.installationId ? (
-            <div className="bg-coral-50 border border-coral-100 rounded-xl p-5 text-center space-y-4">
-              <p className="text-sm text-coral-900">
-                You need to install the Iris GitHub App on your repository first.
-              </p>
-              <a
-                href={`https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`}
-                className="inline-block px-5 py-2.5 bg-coral-600 hover:bg-coral-900 text-white rounded-xl text-sm font-medium transition-colors"
-              >
-                Install GitHub App
-              </a>
-              <p className="text-xs text-coral-900/50">
-                (You will be redirected back here afterward)
-              </p>
+          <div className="bg-coral-50 border border-coral-100 rounded-xl p-5 text-center space-y-3">
+            <p className="text-sm text-coral-900">
+              Don't have an Installation ID? Install the app first:
+            </p>
+            <a
+              href={`https://github.com/apps/${GITHUB_APP_SLUG}/installations/new`}
+              className="inline-block px-5 py-2.5 bg-coral-600 hover:bg-coral-900 text-white rounded-xl text-sm font-medium transition-colors"
+            >
+              Install GitHub App
+            </a>
+          </div>
+
+          <div className="flex items-end gap-2 mt-4">
+            <div className="flex-1">
+              <Field
+                label="GitHub App Installation ID"
+                placeholder="e.g. 12345678"
+                value={form.installationId}
+                onChange={(v) => setForm((f) => ({ ...f, installationId: v }))}
+                required
+              />
             </div>
-          ) : (
-            <div className="flex items-end gap-2">
-              <div className="flex-1">
-                <Field
-                  label="GitHub App Installation ID"
-                  placeholder="e.g. 12345678"
-                  value={form.installationId}
-                  onChange={(v) => setForm((f) => ({ ...f, installationId: v }))}
-                  required
-                />
-              </div>
-              <button
-                type="button"
-                onClick={fetchRepos}
-                disabled={fetchingRepos || !form.installationId}
-                className="px-4 py-2.5 bg-coral-50 border border-coral-200 hover:bg-coral-200 text-coral-900 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
-              >
-                {fetchingRepos ? "..." : "Fetch Repos"}
-              </button>
-            </div>
-          )}
+            <button
+              type="button"
+              onClick={fetchRepos}
+              disabled={fetchingRepos || !form.installationId}
+              className="px-4 py-2.5 bg-coral-50 border border-coral-200 hover:bg-coral-200 text-coral-900 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {fetchingRepos ? "..." : "Fetch Repos"}
+            </button>
+          </div>
 
           {availableRepos.length > 0 && (
             <div className="space-y-1.5">
