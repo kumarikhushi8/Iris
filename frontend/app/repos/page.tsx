@@ -386,38 +386,43 @@ export default function ReposPage() {
         />
       )}
 
-      <main className="min-h-screen bg-cream px-4 py-10">
-        <div className="max-w-2xl mx-auto space-y-8" style={{ animation: "fadeIn 0.4s ease both" }}>
+      <main className="min-h-screen bg-cream">
+        {/* Top Navigation */}
+        <nav className="w-full border-b border-coral-100/50 bg-white/60 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <Mascot size={32} mood={status === "loading" ? "working" : "idle"} />
+            <span className="font-semibold text-coral-900 tracking-tight">Iris Copilot</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <Link href="/dashboard" className="text-sm font-medium text-coral-900/60 hover:text-coral-900 transition-colors">Dashboard</Link>
+            <Link href="/approvals" className="text-sm font-medium text-coral-900/60 hover:text-coral-900 transition-colors">Review Queue</Link>
+            <div className="w-px h-4 bg-coral-100" />
+            <span className="text-xs font-medium text-coral-900/40">
+               {session?.user?.name ? session.user.name : "Signed in"}
+            </span>
+          </div>
+        </nav>
+
+        <div className="max-w-3xl mx-auto px-4 py-12 space-y-8" style={{ animation: "fadeIn 0.4s ease both" }}>
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Mascot size={56} mood={status === "loading" ? "working" : "idle"} />
-              <div>
-                <h1 className="text-2xl font-medium text-coral-900">Connected repositories</h1>
-                <p className="text-coral-900/50 text-sm">
-                  {session?.user?.name ? `Signed in as ${session.user.name}` : "Manage what Iris watches"}
-                </p>
-              </div>
+          <div className="flex items-end justify-between">
+            <div>
+              <h1 className="text-3xl font-semibold text-coral-900 tracking-tight">Repositories</h1>
+              <p className="text-coral-900/50 text-sm mt-1">
+                Manage the repositories Iris is actively monitoring.
+              </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Link href="/approvals" className="text-xs text-coral-900/50 hover:text-coral-900 transition-colors">
-                Review queue →
-              </Link>
-              <Link href="/dashboard" className="text-xs text-coral-900/50 hover:text-coral-900 transition-colors">
-                Dashboard →
-              </Link>
-              <button
-                onClick={() => setShowModal(true)}
-                className="bg-coral-600 hover:bg-coral-900 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors shadow-sm"
-              >
-                + Connect repo
-              </button>
-            </div>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-coral-600 hover:bg-coral-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-md shadow-coral-200/50 hover:shadow-lg hover:-translate-y-0.5"
+            >
+              + Connect repo
+            </button>
           </div>
 
           {/* Loading */}
           {pageState === "loading" && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <SkeletonRepo />
               <SkeletonRepo />
             </div>
@@ -428,7 +433,7 @@ export default function ReposPage() {
             <div className="bg-red-50 border border-red-100 rounded-2xl p-6 text-center space-y-3">
               <p className="text-red-700 font-medium text-sm">Could not load repositories</p>
               <p className="text-red-500 text-xs font-mono">{errorMsg}</p>
-              <button onClick={load} className="text-xs text-red-600 underline">
+              <button onClick={load} className="text-xs text-red-600 underline hover:text-red-800 transition-colors">
                 Try again
               </button>
             </div>
@@ -437,19 +442,19 @@ export default function ReposPage() {
           {/* Empty state */}
           {pageState === "ready" && repos.length === 0 && (
             <div
-              className="bg-white rounded-3xl border-2 border-dashed border-coral-100 p-12 text-center space-y-4"
+              className="bg-white rounded-3xl border-2 border-dashed border-coral-100 p-12 text-center space-y-4 shadow-sm"
               style={{ animation: "fadeIn 0.4s ease both" }}
             >
-              <div className="text-5xl">🔗</div>
+              <div className="text-5xl opacity-80">🔗</div>
               <div>
-                <p className="text-coral-900 font-medium">No repositories connected yet</p>
+                <p className="text-coral-900 font-medium text-lg">No repositories connected yet</p>
                 <p className="text-coral-900/50 text-sm mt-1">
                   Connect a repo and Iris will start watching it for CI failures.
                 </p>
               </div>
               <button
                 onClick={() => setShowModal(true)}
-                className="bg-coral-600 hover:bg-coral-900 text-white px-6 py-3 rounded-2xl text-sm font-medium transition-colors shadow-sm"
+                className="bg-coral-600 hover:bg-coral-900 text-white px-6 py-3 rounded-2xl text-sm font-medium transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
               >
                 Connect first repository
               </button>
@@ -458,7 +463,7 @@ export default function ReposPage() {
 
           {/* Repo list */}
           {pageState === "ready" && repos.length > 0 && (
-            <div className="space-y-3" style={{ animation: "fadeIn 0.4s ease both" }}>
+            <div className="space-y-4" style={{ animation: "fadeIn 0.4s ease both" }}>
               {repos.map((repo, idx) => {
                 const info = AUTONOMY_LABELS[repo.autonomyLevel] ?? AUTONOMY_LABELS.comment_only;
                 const isChanging = changingId === repo.id;
@@ -466,60 +471,57 @@ export default function ReposPage() {
                 return (
                   <div
                     key={repo.id}
-                    className="bg-white rounded-2xl border border-coral-50 shadow-sm p-5 space-y-4"
+                    className="group bg-white rounded-2xl border border-coral-50 shadow-sm hover:shadow-md transition-all duration-300 p-6 flex flex-col gap-2 hover:-translate-y-0.5"
                     style={{ animation: `slideUp 0.35s ease ${idx * 0.05}s both` }}
                   >
-                    {/* Repo name + badge */}
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                    {/* Top Row: Name & Disconnect */}
+                    <div className="flex items-start justify-between">
                       <div>
-                        <p className="font-medium text-coral-900">{repo.name}</p>
-                        <p className="text-xs text-coral-900/40 mt-0.5 font-mono">
+                        <p className="text-lg font-semibold text-coral-900 tracking-tight">{repo.name}</p>
+                        <p className="text-xs text-coral-900/40 mt-1 font-mono bg-coral-50/50 inline-block px-2 py-0.5 rounded-md">
                           id: {repo.githubRepoId}
                         </p>
                       </div>
-                      <span className={`text-xs font-medium px-3 py-1 rounded-full border ${info.color}`}>
-                        {info.label}
-                      </span>
-                    </div>
-
-                    {/* Autonomy selector */}
-                    <div className="space-y-2">
-                      <p className="text-xs text-coral-900/50 font-medium">Autonomy level</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(["comment_only", "draft_pr_eligible"] as const).map((level) => {
-                          const lInfo = AUTONOMY_LABELS[level];
-                          const isActive = repo.autonomyLevel === level;
-                          return (
-                            <button
-                              key={level}
-                              onClick={() => !isActive && setAutonomy(repo.id, level)}
-                              disabled={isChanging}
-                              className={`text-left p-3 rounded-xl border text-xs transition-all
-                                ${isActive
-                                  ? "border-coral-600 bg-coral-50 ring-1 ring-coral-600/20 cursor-default"
-                                  : "border-coral-100 hover:border-coral-200 bg-white cursor-pointer"
-                                }
-                                disabled:opacity-60`}
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium text-coral-900">{lInfo.label}</span>
-                                {isActive && <span className="text-coral-600 text-[10px]">● Active</span>}
-                              </div>
-                              <div className="text-coral-900/50 mt-0.5 leading-snug">{lInfo.desc}</div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Footer: disconnect */}
-                    <div className="flex justify-end pt-1">
                       <button
                         onClick={() => disconnect(repo.id, repo.name)}
-                        className="text-xs text-coral-900/30 hover:text-red-500 transition-colors"
+                        className="opacity-0 group-hover:opacity-100 text-xs font-medium text-coral-900/40 hover:text-red-600 transition-all bg-coral-50/50 hover:bg-red-50 px-3 py-1.5 rounded-lg"
                       >
                         Disconnect
                       </button>
+                    </div>
+
+                    {/* Bottom Row: Autonomy toggle */}
+                    <div>
+                      <div className="flex items-center gap-4 pt-4 border-t border-coral-50/50 mt-3">
+                        <span className="text-sm font-medium text-coral-900/60 w-32">Autonomy Mode</span>
+                        <div className="flex bg-coral-50/50 p-1 rounded-xl w-64 relative">
+                          {(["comment_only", "draft_pr_eligible"] as const).map((level) => {
+                            const lInfo = AUTONOMY_LABELS[level];
+                            const isActive = repo.autonomyLevel === level;
+                            return (
+                              <button
+                                key={level}
+                                onClick={() => !isActive && setAutonomy(repo.id, level)}
+                                disabled={isChanging}
+                                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-medium transition-all duration-300 z-10
+                                  ${isActive
+                                    ? "bg-white text-coral-900 shadow-sm border border-coral-100/50"
+                                    : "text-coral-900/50 hover:text-coral-900 hover:bg-coral-50"
+                                  }
+                                  disabled:opacity-60`}
+                              >
+                                {isActive && (
+                                  <span className={`w-1.5 h-1.5 rounded-full ${level === "comment_only" ? "bg-coral-500" : "bg-seafoam-500"}`} />
+                                )}
+                                {lInfo.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-coral-900/40 mt-2 ml-[144px]">
+                        {info.desc}
+                      </p>
                     </div>
                   </div>
                 );
