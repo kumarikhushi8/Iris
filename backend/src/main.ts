@@ -9,7 +9,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   app.enableCors({ origin: ["http://localhost:3001", "https://iris-one-inky.vercel.app"] });
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-  await app.listen(port);
+  await app.listen(port, "0.0.0.0");
   Logger.log(`Iris API listening on port ${port}`, "Bootstrap");
 }
 
