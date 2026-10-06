@@ -12,7 +12,6 @@ import { ObservabilityModule } from "./observability/observability.module";
 import { ReposModule } from "./repos/repos.module";
 import { UsersModule } from "./users/users.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
-import { WorkerModule } from "./worker/worker.module";
 
 // Phase 0 + Phase 1 modules wired. retrieval/, sandbox/, notification/
 // exist as directories but are not yet imported -- see
@@ -39,7 +38,6 @@ import { WorkerModule } from "./worker/worker.module";
     EvaluationModule,
     ObservabilityModule,
     DashboardModule,
-    WorkerModule,
   ],
 })
 export class AppModule {}
