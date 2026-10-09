@@ -85,15 +85,21 @@ export class SandboxExecutorService {
         "run",
         "--rm",
         "--name", containerName,
-        "--runtime", "runsc",
         "--network", "none",
         "--memory", `${runtimeConfig.memoryLimitMb}m`,
         "--cpus", runtimeConfig.cpuLimit,
+      ];
+      
+      if (process.platform === "linux") {
+        dockerArgs.push("--runtime", "runsc");
+      }
+
+      dockerArgs.push(
         "-v", `${workDir}:/workspace`,
         "-w", "/workspace",
         runtimeConfig.image,
-        "sh", "-c", "npm install --no-audit --no-fund && npm test",
-      ];
+        "sh", "-c", "npm install --no-audit --no-fund && npm test"
+      );
 
       this.logger.log(`Running sandbox container ${containerName} (limits: ${runtimeConfig.memoryLimitMb}MB, ${runtimeConfig.cpuLimit} CPU, ${runtimeConfig.maxRuntimeMs}ms max)`);
       const { exitCode, output, timedOut } = await this.runDockerProcess(
